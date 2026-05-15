@@ -99,8 +99,8 @@ def bounty_traces(chore_values: pd.DataFrame, chores: pd.DataFrame):
     return fig
 
 
-st.set_page_config(page_title="Apollo Chore Dashboard", layout="wide")
-st.title("Apollo Cooperative — Chore Dashboard")
+st.set_page_config(page_title="Apollo Chore Dashboard", layout="centered")
+st.title("Apollo Chore Dashboard")
 st.markdown(
     "Tracking chore reliability and bounty dynamics at Apollo Cooperative, a "
     "cooperative house. Data is consolidated from monthly tracking workbooks "
