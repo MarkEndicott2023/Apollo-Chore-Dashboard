@@ -5,6 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 WORKBOOK = Path(__file__).parent / "chores_centralized.xlsx"
+K_PRIOR = 10
 STATUS_ORDER = ["done", "missed", "gone", "na"]
 STATUS_COLORS = {
     "done": "#2ca02c",
@@ -42,6 +43,24 @@ def leaderboard(completions: pd.DataFrame) -> pd.DataFrame:
     grouped["completion_pct"] = (grouped["done"] / grouped["total"] * 100).round(1)
     return grouped.sort_values("completion_pct", ascending=False).reset_index()
 
+
+def leaderboard_v2(completions: pd.DataFrame) -> pd.DataFrame:
+    counted = completions[completions["status"].isin(["done", "missed"])]
+    done = counted[counted["status"] == "done"].groupby("person_id").size()
+    total = counted.groupby("person_id").size()
+    done = done.reindex(total.index, fill_value=0)
+    house_p = done.sum() / total.sum()
+    bayes = (done + K_PRIOR * house_p) / (total + K_PRIOR)
+    out = pd.DataFrame(
+        {
+            "done": done.astype(int),
+            "total": total.astype(int),
+            "house_avg_pct": round(house_p * 100, 1),
+            "k": K_PRIOR,
+            "bayes_pct": (bayes * 100).round(1),
+        }
+    ).reset_index()
+    return out.sort_values("bayes_pct", ascending=False).reset_index(drop=True)
 
 def status_share_over_time(df: pd.DataFrame) -> pd.DataFrame:
     counts = (
@@ -121,6 +140,7 @@ st.caption(
     "Hover a bar for the underlying counts."
 )
 board = leaderboard(completions)
+
 board_display = board.merge(
     people[["person_id", "display_name"]], on="person_id", how="left"
 )
@@ -140,6 +160,41 @@ fig_board.update_layout(
     height=max(400, 28 * len(board_display)),
 )
 st.plotly_chart(fig_board, width="stretch")
+
+st.header("Leaderboard — adjusted for chore count")
+st.caption(
+    f"The raw % above isn't quite fair: someone who's only had a handful of chores "
+    f"(new residents, officers, people who travel a lot) can land near the top or "
+    f"bottom just from a lucky or unlucky stretch. This version evens things out. "
+    f"Think of it like this: everyone starts with **{K_PRIOR} 'practice' chores** "
+    f"scored at the house's overall completion rate, and then their real chores get "
+    f"added on top. If you've done 50 real chores, those 10 practice ones barely "
+    f"matter — your score is basically your real performance. If you've only done 5, "
+    f"the practice chores still weigh in and your score sits closer to the group "
+    f"average until you've built up more of a track record. Weeks you were `gone` "
+    f"or had no chore assigned (`na`) don't count either way."
+)
+board_v2 = leaderboard_v2(completions).merge(
+    people[["person_id", "display_name"]], on="person_id", how="left"
+)
+board_v2 = board_v2[
+    ["display_name", "done", "total", "house_avg_pct", "k", "bayes_pct"]
+]
+board_v2_display = board_v2.rename(
+    columns={
+        "display_name": "Resident",
+        "done": "Chores completed",
+        "total": "Chores assigned",
+        "house_avg_pct": "House completion rate %",
+        "k": "Practice chores (k)",
+        "bayes_pct": "Adjusted completion %",
+    }
+)
+st.table(
+    board_v2_display.style.format(
+        {"House completion rate %": "{:.1f}", "Adjusted completion %": "{:.1f}"}
+    ).hide(axis="index")
+)
 
 st.header("Status mix over time — by person")
 st.caption(
