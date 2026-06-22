@@ -2,7 +2,7 @@
 
 A Streamlit dashboard visualizing chore tracking at Apollo Cooperative, a cooperative house. Data is consolidated from monthly tracking workbooks covering Aug 2025 onward.
 
-**Live:** _deploy URL goes here_
+**Live:** https://apollo-chore-analytics.streamlit.app/
 
 ## What's in it
 
